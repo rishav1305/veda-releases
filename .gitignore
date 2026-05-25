@@ -1,0 +1,10 @@
+dist/
+.DS_Store
+*.swp
+.minisign/
+*.key
+*.tar.gz
+*.dmg
+*.apk
+node_modules/
+.env
