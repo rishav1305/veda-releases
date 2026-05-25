@@ -22,11 +22,12 @@ Direct fallback (no DNS dependency on the apex domain):
 curl -fsSL https://raw.githubusercontent.com/rishav1305/veda-releases/main/install.sh | bash
 ```
 
-Pin a specific release or pick a component:
+Pin a specific release or pick a component (note env-var placement — must be on
+the right-hand `bash` when piping from curl):
 
 ```bash
-VEDA_VERSION=v6.0.0-rc1 VEDA_COMPONENT=desktop bash install.sh
-VEDA_COMPONENT=server                         bash install.sh
+curl -fsSL https://rishavchatterjee.com/veda/install.sh | VEDA_VERSION=v9.0.1-rc1 bash
+curl -fsSL https://rishavchatterjee.com/veda/install.sh | VEDA_COMPONENT=server  bash
 ```
 
 | `VEDA_COMPONENT` | What it installs                                  |
@@ -43,8 +44,8 @@ The installer verifies every artifact with [minisign](https://jedisct1.github.io
 and rejects unsigned downloads. To verify by hand:
 
 ```bash
-TAG=v6.0.0-rc1
-FILE=veda-desktop-linux-x86_64-${TAG}.tar.gz
+TAG=v9.0.1-rc1
+FILE=veda-desktop-linux-x86_64.tar.gz
 BASE=https://github.com/rishav1305/veda-releases/releases/download/${TAG}
 
 curl -fLO ${BASE}/${FILE}
@@ -64,6 +65,22 @@ sha256sum -c SHA256SUMS --ignore-missing
 - [macOS desktop](docs/macos.md)
 - [Android](docs/android.md)
 - [Self-hosted server](docs/server.md)
+
+## Uninstall
+
+```bash
+curl -fsSL https://rishavchatterjee.com/veda/uninstall.sh | bash
+```
+
+Removes `~/.local/veda/`, `~/.local/veda-server/`, the user-level systemd unit
+at `~/.config/systemd/user/veda-router.service`, the launcher entry, the
+Desktop shortcut, and the GNOME taskbar pin. By default it **keeps**
+`~/.veda/` (your DBs, API keys, audit logs). Pass `--purge-user-data` to also
+wipe `~/.veda/`:
+
+```bash
+curl -fsSL https://rishavchatterjee.com/veda/uninstall.sh | bash -s -- --purge-user-data
+```
 
 ## Why no CI?
 

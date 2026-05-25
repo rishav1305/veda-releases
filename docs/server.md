@@ -36,17 +36,26 @@ host.
 ## Run
 
 ```bash
-~/.local/veda-server/run.sh
+~/.local/veda-server/run.sh --host 0.0.0.0 --port 8088
 ```
 
-`run.sh` installs the bundled wheel (via `uv pip install` if `uv` is on PATH,
-otherwise `python3 -m pip install --user`) and then execs `veda-router serve`.
-Subsequent runs are quick because pip skips already-installed packages.
+`run.sh` creates an isolated venv at `~/.local/veda-server/.venv` on first
+run, installs the bundled wheel into it, then execs `python -m
+veda_router.server` from that venv. Subsequent runs skip install. The venv
+sidesteps PEP 668 (Ubuntu 22.04+ ships an externally-managed system Python
+that refuses `pip install --system`).
 
-Defaults to `0.0.0.0:8080`. Override host/port with `--host` and `--port`, or
-set `VEDA_ROUTER_HOST` / `VEDA_ROUTER_PORT`.
+The CLI accepts `--config <path>`, `--host <ip>`, and `--port <port>`. Without
+flags, the server reads `~/.veda/config.toml` and falls back to its compiled
+defaults — currently HTTPS on the listen-port configured there (8000 for a
+fresh install). `--host` / `--port` override the config. Environment variables
+like `VEDA_ROUTER_HOST` / `VEDA_ROUTER_PORT` are **not** honored — pass flags.
 
-## systemd unit
+The server speaks HTTPS over an internally-generated CA in `~/.veda/server/`.
+Plain `curl http://host:port/` will get an empty reply; use `curl -k https://...`
+or pair a client device through the proper flow.
+
+## systemd unit (user-level)
 
 `~/.config/systemd/user/veda-router.service`:
 
@@ -58,11 +67,15 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=%h/.local/veda-server/run.sh
+ExecStart=%h/.local/veda-server/run.sh --host 0.0.0.0 --port 8088
 Restart=on-failure
 RestartSec=5s
-Environment=VEDA_ROUTER_HOST=0.0.0.0
-Environment=VEDA_ROUTER_PORT=8080
+TimeoutStartSec=120
+
+NoNewPrivileges=true
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
 
 [Install]
 WantedBy=default.target
@@ -75,6 +88,10 @@ systemctl --user daemon-reload
 systemctl --user enable --now veda-router.service
 journalctl --user -u veda-router -f
 ```
+
+Pick a port that isn't already taken (8080 is often grabbed by other tooling
+like crowdsec; 8088 is a common alt). Use `loginctl enable-linger $USER` if you
+want the unit to run when no GUI session is active.
 
 ## The 8 pillars and your server
 
