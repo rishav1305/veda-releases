@@ -2,7 +2,13 @@
 #
 # Veda installer
 #
+# Examples:
 #   curl -fsSL https://rishavchatterjee.com/veda/install.sh | bash
+#   curl -fsSL https://rishavchatterjee.com/veda/install.sh | VEDA_COMPONENT=server bash
+#   curl -fsSL https://rishavchatterjee.com/veda/install.sh | VEDA_VERSION=v9.0.1-rc1 bash
+#
+# Env vars must sit on the right-hand `bash`, not on `curl` — when you
+# pipe, the right-hand side is the only place the script can see them.
 #
 # Environment:
 #   VEDA_VERSION    Tag to install (default: latest). Examples: v9.0.1-rc1

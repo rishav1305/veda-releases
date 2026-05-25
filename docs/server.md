@@ -7,8 +7,12 @@ the mobile/desktop client points at it.
 ## Install
 
 ```bash
-VEDA_COMPONENT=server curl -fsSL https://rishavchatterjee.com/veda/install.sh | bash
+curl -fsSL https://rishavchatterjee.com/veda/install.sh | VEDA_COMPONENT=server bash
 ```
+
+Note the env var placement — it must be on `bash`, not `curl`. Putting
+`VEDA_COMPONENT=server` before `curl` exports it only into curl's environment;
+the script run by the right-hand `bash` would default back to `desktop`.
 
 The installer lands the tree at `~/.local/veda-server/`. Only Linux is packaged
 for the server today; macOS and Windows server builds are not on the roadmap.
