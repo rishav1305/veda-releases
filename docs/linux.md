@@ -12,23 +12,29 @@ curl -fsSL https://rishavchatterjee.com/veda/install.sh | bash
 This will:
 
 1. Detect your distro's arch (`x86_64` or `arm64`).
-2. Download `veda-desktop-linux-<arch>-<version>.tar.gz`, its `.minisig`, the
-   signed `SHA256SUMS`, and the release public key.
+2. Download `veda-desktop-linux-<arch>.tar.gz`, its `.minisig`, the signed
+   `SHA256SUMS`, and the release public key.
 3. Verify both signatures with `minisign` plus the SHA256 hash.
 4. Extract into `~/.local/veda/`.
 
-## Add to PATH
+## Launch
 
-Append to `~/.bashrc` or `~/.zshrc`:
+The Flutter binary lives at `~/.local/veda/veda_app`. Run it directly:
 
 ```bash
-export PATH="$HOME/.local/veda/bin:$PATH"
+~/.local/veda/veda_app
 ```
 
-Then `source ~/.bashrc` (or open a new terminal) and run:
+Or add the install dir to your PATH (in `~/.bashrc` or `~/.zshrc`):
 
 ```bash
-veda --version
+export PATH="$HOME/.local/veda:$PATH"
+```
+
+Then re-source the shell and run:
+
+```bash
+veda_app
 ```
 
 ## Desktop entry
@@ -40,11 +46,10 @@ Create `~/.local/share/applications/veda.desktop`:
 Type=Application
 Name=Veda
 Comment=Mobile-first AI assistant
-Exec=%h/.local/veda/bin/veda
-Icon=%h/.local/veda/share/icons/veda.png
+Exec=%h/.local/veda/veda_app
 Terminal=false
 Categories=Utility;Network;AudioVideo;
-StartupWMClass=veda
+StartupWMClass=veda_app
 ```
 
 Then refresh your launcher's cache:

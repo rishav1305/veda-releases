@@ -32,8 +32,12 @@ host.
 ## Run
 
 ```bash
-~/.local/veda-server/bin/veda-router serve
+~/.local/veda-server/run.sh
 ```
+
+`run.sh` installs the bundled wheel (via `uv pip install` if `uv` is on PATH,
+otherwise `python3 -m pip install --user`) and then execs `veda-router serve`.
+Subsequent runs are quick because pip skips already-installed packages.
 
 Defaults to `0.0.0.0:8080`. Override host/port with `--host` and `--port`, or
 set `VEDA_ROUTER_HOST` / `VEDA_ROUTER_PORT`.
@@ -50,7 +54,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=%h/.local/veda-server/bin/veda-router serve
+ExecStart=%h/.local/veda-server/run.sh
 Restart=on-failure
 RestartSec=5s
 Environment=VEDA_ROUTER_HOST=0.0.0.0

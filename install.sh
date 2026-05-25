@@ -5,7 +5,7 @@
 #   curl -fsSL https://rishavchatterjee.com/veda/install.sh | bash
 #
 # Environment:
-#   VEDA_VERSION    Tag to install (default: latest). Examples: v6.0.0-rc1
+#   VEDA_VERSION    Tag to install (default: latest). Examples: v9.0.1-rc1
 #   VEDA_COMPONENT  desktop | server (default: desktop)
 #
 # Signature verification with minisign is mandatory. There is no skip flag.
@@ -20,12 +20,12 @@ RELEASE_TAG_BASE="https://github.com/${REPO}/releases/download"
 VEDA_VERSION="${VEDA_VERSION:-latest}"
 VEDA_COMPONENT="${VEDA_COMPONENT:-desktop}"
 
-TMPDIR=""
+WORKDIR=""
 
 cleanup() {
   local code=$?
-  if [ -n "${TMPDIR}" ] && [ -d "${TMPDIR}" ]; then
-    rm -rf "${TMPDIR}"
+  if [ -n "${WORKDIR}" ] && [ -d "${WORKDIR}" ]; then
+    rm -rf "${WORKDIR}"
   fi
   exit "${code}"
 }
@@ -103,13 +103,15 @@ EOF
   PLATFORM_ARCH="${arch}"
 }
 
+# Asset filenames are version-less: the URL path (/releases/latest/download or
+# /releases/download/<tag>) carries the version, so the filename should not.
 artifact_name() {
-  local component="$1" os="$2" arch="$3" version="$4"
+  local component="$1" os="$2" arch="$3"
   if [ "${os}" = "macos" ] && [ "${component}" = "desktop" ]; then
-    printf 'veda-desktop-macos-%s-%s.dmg' "${arch}" "${version}"
+    printf 'veda-desktop-macos-%s.dmg' "${arch}"
     return
   fi
-  printf 'veda-%s-%s-%s-%s.tar.gz' "${component}" "${os}" "${arch}" "${version}"
+  printf 'veda-%s-%s-%s.tar.gz' "${component}" "${os}" "${arch}"
 }
 
 release_url() {
@@ -151,25 +153,27 @@ verify_sha256() {
   info "sha256 ok: ${base}"
 }
 
-install_linux_tarball() {
-  local file="$1" target="$2"
-  mkdir -p "${target}"
-  if ! tar -xzf "${file}" -C "${target}"; then
-    err "failed to extract ${file} into ${target}"
+# Tarballs in v9.0.1-rc1 have a top-level dir matching the install location
+# (veda/ for desktop, veda-server/ for server), so extracting to ~/.local
+# yields ~/.local/veda or ~/.local/veda-server directly.
+install_tarball_to_local() {
+  local file="$1"
+  mkdir -p "${HOME}/.local"
+  if ! tar -xzf "${file}" -C "${HOME}/.local"; then
+    err "failed to extract ${file} into ${HOME}/.local"
   fi
-  info "extracted to ${target}"
 }
 
 install_macos_dmg() {
   local file="$1"
-  info "opening ${file} — drag Veda.app to /Applications"
+  info "opening ${file} — drag veda_app.app to /Applications"
   if ! open "${file}"; then
     err "failed to open ${file}"
   fi
   cat <<'EOF'
 
 If Gatekeeper blocks the app on first launch, remove the quarantine flag:
-  xattr -d com.apple.quarantine /Applications/Veda.app
+  xattr -d com.apple.quarantine /Applications/veda_app.app
 
 EOF
 }
@@ -198,10 +202,10 @@ main() {
   fi
 
   local file url
-  file="$(artifact_name "${VEDA_COMPONENT}" "${PLATFORM_OS}" "${PLATFORM_ARCH}" "${VEDA_VERSION}")"
+  file="$(artifact_name "${VEDA_COMPONENT}" "${PLATFORM_OS}" "${PLATFORM_ARCH}")"
   url="$(release_url "${file}")"
 
-  TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/veda-install.XXXXXXXX")"
+  WORKDIR="$(mktemp -d /tmp/veda-install.XXXXXXXX)"
 
   info "veda-releases: ${REPO}"
   info "version:       ${VEDA_VERSION}"
@@ -209,57 +213,63 @@ main() {
   info "platform:      ${PLATFORM_OS}/${PLATFORM_ARCH}"
   info "artifact:      ${file}"
 
-  fetch "${url}"                "${TMPDIR}/${file}"
-  fetch "${url}.minisig"        "${TMPDIR}/${file}.minisig"
-  fetch "$(release_url SHA256SUMS)"          "${TMPDIR}/SHA256SUMS"
-  fetch "$(release_url SHA256SUMS.minisig)"  "${TMPDIR}/SHA256SUMS.minisig"
-  fetch "${RAW_BASE}/keys/veda-release.pub"  "${TMPDIR}/veda-release.pub"
+  fetch "${url}"                "${WORKDIR}/${file}"
+  fetch "${url}.minisig"        "${WORKDIR}/${file}.minisig"
+  fetch "$(release_url SHA256SUMS)"          "${WORKDIR}/SHA256SUMS"
+  fetch "$(release_url SHA256SUMS.minisig)"  "${WORKDIR}/SHA256SUMS.minisig"
+  fetch "${RAW_BASE}/keys/veda-release.pub"  "${WORKDIR}/veda-release.pub"
 
-  if grep -q '^# PLACEHOLDER' "${TMPDIR}/veda-release.pub"; then
+  if grep -q '^# PLACEHOLDER' "${WORKDIR}/veda-release.pub"; then
     err "release public key is still a placeholder. Refusing to install unsigned artifacts."
   fi
 
   info "verifying signature on artifact"
-  if ! minisign -Vm "${TMPDIR}/${file}" -p "${TMPDIR}/veda-release.pub"; then
+  if ! minisign -Vm "${WORKDIR}/${file}" -p "${WORKDIR}/veda-release.pub"; then
     err "minisign verification failed for ${file}"
   fi
 
   info "verifying signature on SHA256SUMS"
-  if ! minisign -Vm "${TMPDIR}/SHA256SUMS" -p "${TMPDIR}/veda-release.pub"; then
+  if ! minisign -Vm "${WORKDIR}/SHA256SUMS" -p "${WORKDIR}/veda-release.pub"; then
     err "minisign verification failed for SHA256SUMS"
   fi
 
-  verify_sha256 "${TMPDIR}/${file}" "${TMPDIR}/SHA256SUMS"
+  verify_sha256 "${WORKDIR}/${file}" "${WORKDIR}/SHA256SUMS"
 
   case "${PLATFORM_OS}-${VEDA_COMPONENT}" in
     linux-desktop)
-      install_linux_tarball "${TMPDIR}/${file}" "${HOME}/.local/veda"
+      install_tarball_to_local "${WORKDIR}/${file}"
       cat <<EOF
 
 Installed to ${HOME}/.local/veda
 
-Add to PATH (bash or zsh):
-  export PATH="\$HOME/.local/veda/bin:\$PATH"
+Launch directly:
+  ${HOME}/.local/veda/veda_app
+
+Or add to PATH (bash or zsh):
+  export PATH="\$HOME/.local/veda:\$PATH"
+
+Then run:
+  veda_app
 
 See https://github.com/${REPO}/blob/main/docs/linux.md for a .desktop entry.
 EOF
       ;;
     linux-server)
-      install_linux_tarball "${TMPDIR}/${file}" "${HOME}/.local/veda-server"
+      install_tarball_to_local "${WORKDIR}/${file}"
       cat <<EOF
 
 Installed to ${HOME}/.local/veda-server
 
 Config lives at ~/.veda/ (created on first run).
 Start the router:
-  ${HOME}/.local/veda-server/bin/veda-router serve
+  ${HOME}/.local/veda-server/run.sh
 
 systemd unit example and full notes:
   https://github.com/${REPO}/blob/main/docs/server.md
 EOF
       ;;
     macos-desktop)
-      install_macos_dmg "${TMPDIR}/${file}"
+      install_macos_dmg "${WORKDIR}/${file}"
       ;;
     *)
       err "no installer path for ${PLATFORM_OS}-${VEDA_COMPONENT}"
